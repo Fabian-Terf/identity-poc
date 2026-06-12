@@ -1,56 +1,64 @@
 import * as Linking from "expo-linking";
-import { Redirect } from "expo-router";
+import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import { useEffect, useState } from "react";
-import { Platform } from "react-native";
-
-// 🔥 Abstraction Web/Mobile pour lire le token local
-async function getToken() {
-  if (Platform.OS === "web") {
-    return localStorage.getItem("token");
-  }
-  return SecureStore.getItemAsync("token");
-}
+import { useEffect } from "react";
 
 export default function Index() {
-  const [token, setToken] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
-    // 1️⃣ WEB : vérifier si le token est dans l’URL
-    if (Platform.OS === "web") {
+    // ---------------------------
+    // 1) WEB : lecture du token dans l’URL
+    // ---------------------------
+    if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
-      const tokenFromUrl = url.searchParams.get("token");
+      const token = url.searchParams.get("token");
 
-      if (tokenFromUrl) {
-        // Stocker le token
-        localStorage.setItem("token", tokenFromUrl);
+      if (token) {
+        localStorage.setItem("token", token);
 
         // Nettoyer l’URL
-        url.searchParams.delete("token");
-        window.history.replaceState({}, "", url.toString());
+        window.history.replaceState({}, "", "/");
 
-        setToken(tokenFromUrl);
+        router.replace("/home");
         return;
       }
+
+      // Pas de token → redirection vers Identity Web
+      const identityUrl = new URL("http://localhost:3000/login.html");
+      identityUrl.searchParams.set("returnTo", window.location.origin);
+
+      window.location.href = identityUrl.toString();
+      return;
     }
 
-    // 2️⃣ MOBILE + WEB : lire le token local
-    getToken().then(async (t) => {
-      if (!t) {
-        // Pas de token → redirection vers Identity
-        await Linking.openURL(
-          "http://localhost:8081/auth/login?returnTo=http://localhost:8082"
-        );
-        return;
+    // ---------------------------
+    // 2) MOBILE : deep linking
+    // ---------------------------
+    const handleDeepLink = async (event: { url: string }) => {
+      const parsed = Linking.parse(event.url);
+      let token = parsed.queryParams?.token;
+
+      // Correction TypeScript : forcer en string
+      if (Array.isArray(token)) {
+        token = token[0];
       }
 
-      setToken(t);
+      if (typeof token === "string" && token.length > 0) {
+        await SecureStore.setItemAsync("token", token);
+        router.replace("/home");
+      }
+    };
+
+    const sub = Linking.addEventListener("url", handleDeepLink);
+
+    // Si l’app a été ouverte via un lien
+    Linking.getInitialURL().then((url) => {
+      if (url) handleDeepLink({ url });
     });
+
+    return () => sub.remove();
   }, []);
 
-  // 3️⃣ Attendre le token
-  if (!token) return null;
-
-  // 4️⃣ Token OK → redirection interne
-  return <Redirect href="/home" />;
+  return null;
 }

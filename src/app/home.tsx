@@ -1,14 +1,13 @@
 import * as SecureStore from "expo-secure-store";
-import { jwtDecode } from "jwt-decode";
 import { useEffect, useState } from "react";
-import { Platform, StyleSheet, Text, View } from "react-native";
-
-type User = {
-  id: number;
-  email: string;
-  firstName: string;
-  lastName: string;
-};
+import {
+  Linking,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 async function getToken() {
   if (Platform.OS === "web") {
@@ -18,17 +17,66 @@ async function getToken() {
 }
 
 export default function Home() {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<any | null>(null);
 
   useEffect(() => {
     (async () => {
       const token = await getToken();
-      if (token) {
-        const decoded = jwtDecode<User>(token);
-        setUser(decoded);
+
+      // Pas de token → retour vers Identity Web
+      if (!token) {
+        redirectToIdentity();
+        return;
+      }
+
+      // Appel API sécurisé pour récupérer l'utilisateur
+      try {
+        const res = await fetch("http://localhost:5000/users/me", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!res.ok) {
+          redirectToIdentity();
+          return;
+        }
+
+        const data = await res.json();
+        setUser(data);
+      } catch {
+        redirectToIdentity();
       }
     })();
   }, []);
+
+  function redirectToIdentity() {
+    const identityLogin =
+      "http://localhost:3000/login.html?returnTo=http://localhost:8081";
+
+    if (Platform.OS === "web") {
+      window.location.href = identityLogin;
+    } else {
+      Linking.openURL(identityLogin);
+    }
+  }
+
+  async function handleLogout() {
+    if (Platform.OS === "web") {
+      localStorage.removeItem("token");
+    } else {
+      await SecureStore.deleteItemAsync("token");
+    }
+
+    const logoutUrl =
+      "http://localhost:3000/logout.html?returnTo=http://localhost:8081";
+
+    if (Platform.OS === "web") {
+      window.location.href = logoutUrl;
+    } else {
+      await Linking.openURL(logoutUrl);
+    }
+  }
 
   if (!user) {
     return <Text style={styles.loading}>Chargement...</Text>;
@@ -37,7 +85,7 @@ export default function Home() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Bienvenue {user.firstName} 👋</Text>
-      <Text style={styles.subtitle}>Vous êtes connecté à l’Identity POC</Text>
+      <Text style={styles.subtitle}>Vous êtes connecté au POC</Text>
 
       <View style={styles.card}>
         <Text style={styles.label}>Nom complet</Text>
@@ -49,6 +97,10 @@ export default function Home() {
         <Text style={styles.label}>ID utilisateur</Text>
         <Text style={styles.value}>{user.id}</Text>
       </View>
+
+      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        <Text style={styles.logoutText}>Se déconnecter</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -90,6 +142,18 @@ const styles = StyleSheet.create({
   value: {
     fontSize: 18,
     color: "#0A3D62",
+    fontWeight: "600",
+  },
+  logoutButton: {
+    marginTop: 40,
+    backgroundColor: "#c0392b",
+    paddingVertical: 14,
+    borderRadius: 10,
+  },
+  logoutText: {
+    color: "#fff",
+    textAlign: "center",
+    fontSize: 18,
     fontWeight: "600",
   },
 });
