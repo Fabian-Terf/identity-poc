@@ -31,7 +31,7 @@ export default function Home() {
 
       // Appel API sécurisé pour récupérer l'utilisateur
       try {
-        const res = await fetch("http://localhost:5000/users/me", {
+        const res = await fetch("https://192.168.0.60:5004/users/me", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -52,7 +52,7 @@ export default function Home() {
 
   function redirectToIdentity() {
     const identityLogin =
-      "http://localhost:3000/login.html?returnTo=http://localhost:8081";
+      "https://synologyds225/identity-web/login.html?returnTo=http://192.168.0.60/identity-poc/";
 
     if (Platform.OS === "web") {
       window.location.href = identityLogin;
@@ -69,7 +69,7 @@ export default function Home() {
     }
 
     const logoutUrl =
-      "http://localhost:3000/logout.html?returnTo=http://localhost:8081";
+      "https://synologyds225/identity-web/login.html?returnTo=http://192.168.0.60/identity-poc/";
 
     if (Platform.OS === "web") {
       window.location.href = logoutUrl;

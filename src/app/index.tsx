@@ -25,7 +25,7 @@ export default function Index() {
       }
 
       // Pas de token → redirection vers Identity Web
-      const identityUrl = new URL("http://localhost:3000/login.html");
+      const identityUrl = new URL("https://synologyds225/identity-web/login.html");
       identityUrl.searchParams.set("returnTo", window.location.origin);
 
       window.location.href = identityUrl.toString();
